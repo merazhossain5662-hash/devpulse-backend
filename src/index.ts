@@ -1,6 +1,7 @@
 import express, { type Application, type Request, type Response } from "express"
 import dotenv from "dotenv"
 import {Pool} from "pg"
+import bcrypt from "bcryptjs";
 const app : Application= express()
 const port = 8000
 dotenv.config();
@@ -9,6 +10,7 @@ app.use(express.json());
 const pool = new Pool({
   connectionString :process.env.CONNECTIONSTRING,
 });
+
 
 const initDb = async ()=>{
     try {
@@ -39,12 +41,13 @@ app.get('/', (req : Request, res : Response) => {
 app.post("/api/auth/signup", async(req : Request, res : Response)=>{
      const {name, email,password}= req.body;
      const role = req.body.role || "contributor";
+     const hashPassword = await bcrypt.hash(password, 10)
     try {
       const result =  await pool.query(`
         INSERT INTO users(name, email, password, role)
         VALUES($1,$2,$3, $4)
         RETURNING *
-        `,[name,email, password, role]);
+        `,[name,email, hashPassword, role]);
         delete result.rows[0].password
         res.status(201).json({
           success : true,
