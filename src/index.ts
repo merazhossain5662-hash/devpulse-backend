@@ -17,7 +17,9 @@ const initDb = async ()=>{
         name VARCHAR(20) NOT NULL,
         email VARCHAR(25) NOT NULL UNIQUE,
         password TEXT NOT NULL,
-        role VARCHAR(20) DEFAULT 'contributor' CHECK (role IN ('maintainer','contributor'))
+        role VARCHAR(20) DEFAULT 'contributor' CHECK (role IN ('maintainer','contributor')),
+        created_at DATE DEFAULT CURRENT_DATE,
+        updated_at DATE DEFAULT CURRENT_DATE
         )
         `);
         console.log("database connected seccessfully");
@@ -37,12 +39,17 @@ app.post("/api/auth/signup", async(req : Request, res : Response)=>{
      const {name, email,password}= req.body;
      const role = req.body.role || "contributor";
     try {
-       await pool.query(`
+      const result =  await pool.query(`
         INSERT INTO users(name, email, password, role)
         VALUES($1,$2,$3, $4)
         RETURNING *
         `,[name,email, password, role]);
-        res.json(req.body)
+        delete result.rows[0].password
+        res.status(201).json({
+          success : true,
+          message : "User registered successfully",
+          data : result.rows[0]
+        })
         
     } catch (error : any) {
       console.log(error);
