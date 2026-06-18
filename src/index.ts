@@ -26,12 +26,25 @@ const initDb = async ()=>{
         updated_at DATE DEFAULT CURRENT_DATE
         )
         `);
+
+        await pool.query(`
+        CREATE TABLE IF NOT EXISTS issues(
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(100) NOT NULL,
+        description VARCHAR(150) CHECK (length(description) >= 20),
+        type VARCHAR(20) NOT NULL CHECK (type IN ('bug','feature_request')),
+        status VARCHAR(20) DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved')),
+        reporter_id INT REFERENCES users(id),
+        created_at DATE DEFAULT CURRENT_DATE,
+        updated_at DATE DEFAULT CURRENT_DATE
+      )
+        `)
         console.log("database connected seccessfully");
         
     } catch (error : any) {
       console.log(error);
       
-    }
+    };
 };
 initDb();
 
@@ -105,6 +118,7 @@ app.post("/api/auth/login", async(req :Request, res :Response)=>{
   }
 
 })
+
 
 
 app.listen(port, () => {
