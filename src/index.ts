@@ -2,6 +2,7 @@ import express, { type Application, type Request, type Response } from "express"
 import dotenv from "dotenv"
 import {Pool} from "pg"
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken"
 const app : Application= express()
 const port = 8000
 dotenv.config();
@@ -59,6 +60,50 @@ app.post("/api/auth/signup", async(req : Request, res : Response)=>{
       console.log(error);
       
     }
+})
+
+app.post("/api/auth/login", async(req :Request, res :Response)=>{
+  const {email,password}= req.body;
+  try {
+    const userData = await pool.query(`
+    SELECT * FROM users WHERE email=$1
+    `,[email])
+    if(userData.rows.length === 0){
+     res.status(400).json({
+        message : "Invalid Credentials!"
+      })
+    }
+    const user = userData.rows[0]; 
+
+    const comparePassword = await bcrypt.compare(password, user.password)
+    if(!comparePassword){
+      res.status(400).json({
+        message : "Invalid Credentials!"
+      })
+    };
+    const jwtPayload = {
+      id : user.id,
+      name : user.anme,
+      role : user.role,
+      email : user.email
+    }
+    const Token = jwt.sign(jwtPayload, process.env.JWT_SECRATE as string,{
+      expiresIn : "1d"
+    })
+    delete userData.rows[0].password
+    res.status(200).json({
+      success : true,
+      message : "Login successful",
+      data : {
+        token : Token,
+        user :userData.rows[0]
+      }
+    })
+  } catch (error : any) {
+    console.log(error);
+    
+  }
+
 })
 
 
