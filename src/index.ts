@@ -2,7 +2,7 @@ import express, { type Application, type Request, type Response } from "express"
 import dotenv from "dotenv"
 import {Pool} from "pg"
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken"
+import jwt, { type JwtPayload } from "jsonwebtoken"
 const app : Application= express()
 const port = 8000
 dotenv.config();
@@ -119,6 +119,39 @@ app.post("/api/auth/login", async(req :Request, res :Response)=>{
 
 })
 
+app.post("/api/issues", async(req : Request, res :Response)=>{
+  const token = req.headers.authorization;
+  const {title, description,type} = req.body
+  if(!token){
+   res.status(401).json({
+    success : false,
+    message : "Unauthorized"
+   })
+  }
+ try {
+   const decoded = jwt.verify(token as string, process.env.JWT_SECRATE as string) as JwtPayload;
+   const issue = await pool.query(`
+    INSERT INTO issues(title, description,type, reporter_id)
+    VALUES($1,$2,$3,$4)
+        RETURNING *
+    `,[title, description ,type, decoded.id])
+   res.status(201).json({
+    success: true,
+    message: "Issue created successfully",
+    data : issue.rows[0]
+   })
+ } catch (error) {
+   res.status(401).json({
+    success : false,
+    message : "Unauthorized"
+   })
+ }
+  
+
+  
+    
+  
+})
 
 
 app.listen(port, () => {
