@@ -145,14 +145,72 @@ app.post("/api/issues", async(req : Request, res :Response)=>{
     success : false,
     message : "Unauthorized"
    })
- }
-  
-
-  
-    
-  
+ }  
 })
 
+app.get("/api/issues", async(req : Request, res : Response)=>{
+  try {
+
+    const {sort = "newest", ...filters} = req.query;
+     const avalaibleFilters={type: true, status : true} as const;
+
+    let query = `SELECT * FROM issues`;
+    let condition : string[]= [];
+    let values : any[]= [];
+
+    Object.entries(filters).forEach(([key, value])=>{
+      if(key in avalaibleFilters && typeof value === "string"){
+        values.push(value);
+        condition.push(`${key} = $${values.length}`)
+      }
+    })
+
+    if(condition.length > 0){
+      query += ` WHERE ` + condition.join(" AND ")
+    }
+
+    if(sort ==="oldest"){
+     query += ` ORDER BY created_at ASC`;
+    }else{
+      query += ` ORDER BY created_at DESC`
+    }
+    const issueResult = await pool.query(query, values)
+    const issues = issueResult.rows 
+console.log("issues before map:", issues);
+    const reporterIds = [...new Set(issues.map((i : any) => {
+    return  i.reporter_id
+     }))]
+    let reportersMap : Record<number, any> = {} 
+
+
+    if(reporterIds.length > 0){
+      const userResult = await pool.query(`
+        SELECT id,name, role FROM users WHERE id = ANY($1)
+        `,[reporterIds])
+        userResult.rows.forEach(user =>{
+          reportersMap[user.id] = user;
+        })
+    }
+    console.log("reporterIds:", reporterIds);
+console.log("reportersMap:", reportersMap);
+console.log("issues sample:", issues[0]);
+    const finalData = issues.map(issue => ({
+      ...issue,
+      reporter : reportersMap[issue.reporter_id] || null
+    }))
+     res.status(200).json({
+      success: true,
+      message: "Issues retrieved successfully",
+      data: finalData
+    });
+  } catch (error: any) {
+     console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+})
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
